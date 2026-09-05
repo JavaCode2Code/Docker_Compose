@@ -19,13 +19,19 @@ docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root mysql:latest
 docker exec -it mysql-container bash  -l
 
 mysql -uroot -p
+
 Enter password:
+
 show schemas;
 use testdb
 create table
 show tatable;
+
 docker stop 2374edc38a9a
+
 #stateful conatainer#
+
 docker create -v  /var/lib/mysql --name mysqldata mysql/mysql-server:latest
+
 docker run -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root --volumes-from mysqldata --name=mysqldb mysql/mysql-server:latest
 
