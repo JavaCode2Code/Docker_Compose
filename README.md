@@ -15,3 +15,6 @@ docker exec -t -i 9ede90ac0241 bash
 docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root -d mysql:latest
 
 docker exec -it mysql-container bash  -l
+
+mysql -uroot -p
+Enter password:
