@@ -1,0 +1,126 @@
+CICD pipeline
+
+
+Create EC2 instance
+Install Jenkins
+Install Java
+install git
+install maven
+install docker
+
+
+1.)login using command
+ssh -i <key_pair>.pem ubuntu@65.1.95.181
+and make sure EC2 security group allows port 80 and 8080 and 8081(application port)
+
+2.) install java
+sudo apt-get update -y
+sudo apt-get install openjdk-11-jdk -y
+
+3.) install docker
+https://get.docker.com/
+or below 2 commands
+
+curl -fsSL https://get.docker.com -o install-docker.sh
+sudo sh install-docker.sh
+
+
+
+4.)
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+
+sudo apt-get update -y
+sudo apt-get install jenkins -y
+
+sudo systemctl status jenkins to verify jenkins is running
+
+sudo usermod -a -G docker jenkins
+sudo usermod -aG docker $USER
+newgrp docker
+sudo service jenkins restart
+
+
+go to browser and hit ip:8080 you will see jenkins home page, it will give you path for security token and path will be like /var/jenkins_home/secrets/initialAdminPassword  make sure you use sudo command like this   "sudo vim /var/jenkins_home/secrets/initialAdminPassword "
+
+click on install suggested plugins
+after that install docker and docker pipeline plugin,
+install git plugin also
+
+5.) Create Repo in ECR with name my-cid-repo
+6.) install awscli on ec2 instance  "sudo apt install awscli"
+7.) install git using command "sudo apt install git -y"
+8.) install maven using command "sudo apt install maven -y"
+
+
+
+if aws --version shows 1 instead of 2 then uninstall version 1 then execute below command
+
+sudo curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt-get install unzip
+sudo unzip awscliv2.zip
+sudo ./aws/install
+then aws --version it should show version 2
+
+
+docker rmi $(docker images -a -q)
+
+
+
+-------------------Jenkins Script--------
+
+pipeline {
+    agent any
+    environment {
+        registry = "<your_account_id>.dkr.ecr.ap-south-1.amazonaws.com/my-cicd-repo"
+    }
+
+    stages {
+        stage('Cloning Git') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: 'https://github.com/makhijanaresh/JenkinsCICD']]])
+            }
+        }
+
+        // Building the JAR file
+        stage('Building JAR') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+
+
+        // Uploading Docker images into AWS ECR
+       stage('Pushing to ECR') {
+            steps{
+                script {
+                    sh 'aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/m0f0s7t1'
+					sh 'docker build -t public.ecr.aws/m0f0s7t1/my-cicd-repo:latest .'
+					sh 'docker push public.ecr.aws/m0f0s7t1/my-cicd-repo:latest'
+                }
+            }
+        }
+
+        // Stopping Docker containers for cleaner Docker run
+        stage('Stop previous containers') {
+            steps {
+                sh 'docker stop myjavaContainer || true'
+                sh 'docker rm myjavaContainer || true'
+            }
+        }
+
+        // Running Docker container
+        stage('Docker Run') {
+            steps {
+                sh 'docker run -d -p 8081:8081 --name myjavaContainer public.ecr.aws/m0f0s7t1/my-cicd-repo:latest'
+            }
+        }
+    }
+}
